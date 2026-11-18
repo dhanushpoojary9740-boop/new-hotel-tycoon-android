@@ -2,263 +2,544 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
-<meta name="theme-color" content="#172b2b">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="theme-color" content="#203b36">
+<meta name="description" content="Build and manage your own isometric hotel empire.">
+<link rel="manifest" href="./manifest.json">
 <title>New Hotel Tycoon</title>
+
 <style>
-*{box-sizing:border-box}
-body{
- margin:0;background:#142323;color:white;
- font-family:Arial,sans-serif;overflow:hidden;
- touch-action:pan-x pan-y;
+* {
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
 }
-header{
- height:65px;background:#203b36;
- display:flex;align-items:center;justify-content:space-between;
- padding:10px 16px;
+
+body {
+  margin: 0;
+  background: #142323;
+  color: white;
+  font-family: Arial, sans-serif;
+  overflow: hidden;
+  user-select: none;
 }
-h2{font-size:18px;margin:0}
-#money{color:#ffd56a;font-weight:bold}
-main{height:calc(100dvh - 145px);position:relative}
-canvas{width:100%;height:100%;display:block}
-footer{
- height:80px;background:#203b36;display:flex;
- justify-content:space-around;align-items:center;
- padding:8px;
+
+header {
+  height: 60px;
+  background: #203b36;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 16px;
+  border-bottom: 1px solid #476158;
 }
-button{
- border:0;border-radius:10px;padding:12px;
- background:#d99b45;color:#21190d;font-weight:bold;
+
+h2 {
+  font-size: 17px;
+  margin: 0;
 }
-button:active{transform:scale(.96)}
-#message{
- position:absolute;top:12px;left:50%;
- transform:translateX(-50%);
- background:#172b2b;padding:9px 14px;
- border-radius:10px;font-size:12px;
- white-space:nowrap;
+
+#money {
+  color: #ffd56a;
+  font-weight: bold;
+  font-size: 14px;
+}
+
+main {
+  height: calc(100dvh - 130px);
+  position: relative;
+  overflow: hidden;
+}
+
+canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+  touch-action: none;
+}
+
+#message {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #172b2b;
+  border: 1px solid #587269;
+  padding: 9px 14px;
+  border-radius: 10px;
+  font-size: 12px;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+footer {
+  height: 70px;
+  background: #203b36;
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+  gap: 7px;
+  padding: 7px;
+  border-top: 1px solid #476158;
+}
+
+button {
+  border: none;
+  border-radius: 10px;
+  padding: 12px 10px;
+  background: #d99b45;
+  color: #21190d;
+  font-weight: bold;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+button:active {
+  transform: scale(.96);
+}
+
+#build.active {
+  background: #78c98c;
+}
+
+#offline {
+  position: absolute;
+  bottom: 8px;
+  right: 10px;
+  color: #b9d7c5;
+  font-size: 10px;
 }
 </style>
 </head>
+
 <body>
 
 <header>
- <h2>🏨 New Hotel Tycoon</h2>
- <div id="money">💰 $10,000</div>
+  <h2>🏨 New Hotel Tycoon</h2>
+  <div id="money">💰 $10,000</div>
 </header>
 
 <main>
- <canvas id="game"></canvas>
- <div id="message">Welcome to your hotel!</div>
+  <canvas id="game"></canvas>
+  <div id="message">Welcome to your first hotel!</div>
+  <div id="offline">OFFLINE READY</div>
 </main>
 
 <footer>
- <button id="build">🏗️ Build Room</button>
- <button id="upgrade">⭐ Upgrade</button>
- <button id="reset">↻ Reset</button>
+  <button id="build">🏗️ Build Room</button>
+  <button id="upgrade">⭐ Upgrade</button>
+  <button id="reset">↻ Reset</button>
 </footer>
 
 <script>
-const canvas=document.getElementById("game");
-const ctx=canvas.getContext("2d");
+"use strict";
 
-const COLS=12,ROWS=10;
-const TW=52,TH=26;
-let money=10000;
-let buildMode=false;
-let tiles={};
+// ===================================
+// GAME CONFIGURATION
+// ===================================
 
-try{
- tiles=JSON.parse(localStorage.getItem("hotelTiles"))||{};
- money=Number(localStorage.getItem("hotelMoney"))||10000;
-}catch(e){}
+const COLS = 12;
+const ROWS = 10;
+const TILE_W = 52;
+const TILE_H = 26;
+const ROOM_COST = 1000;
 
-function resize(){
- const r=canvas.getBoundingClientRect();
- const d=Math.min(window.devicePixelRatio||1,2);
- canvas.width=r.width*d;
- canvas.height=r.height*d;
- ctx.setTransform(d,0,0,d,0,0);
- draw();
-}
-window.addEventListener("resize",resize);
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
 
-function origin(){
- return {x:canvas.clientWidth/2,y:canvas.clientHeight*.20};
-}
+let money = 10000;
+let buildMode = false;
+let tiles = {};
 
-function point(x,y){
- const o=origin();
- return {
-  x:o.x+(x-y)*TW/2,
-  y:o.y+(x+y)*TH/2
- };
-}
+const STORAGE_MONEY = "hotelTycoonMoney";
+const STORAGE_TILES = "hotelTycoonTiles";
 
-function diamond(x,y,color){
- const p=point(x,y);
- ctx.beginPath();
- ctx.moveTo(p.x,p.y);
- ctx.lineTo(p.x+TW/2,p.y+TH/2);
- ctx.lineTo(p.x,p.y+TH);
- ctx.lineTo(p.x-TW/2,p.y+TH/2);
- ctx.closePath();
- ctx.fillStyle=color;
- ctx.fill();
- ctx.strokeStyle="#83928b";
- ctx.lineWidth=.7;
- ctx.stroke();
-}
+// ===================================
+// SAVE AND LOAD
+// ===================================
 
-function draw(){
- const w=canvas.clientWidth,h=canvas.clientHeight;
- ctx.clearRect(0,0,w,h);
+function loadGame() {
+  try {
+    const savedMoney = localStorage.getItem(STORAGE_MONEY);
+    const savedTiles = localStorage.getItem(STORAGE_TILES);
 
- ctx.fillStyle="#263c39";
- ctx.fillRect(0,0,w,h);
+    if (savedMoney !== null) {
+      const parsedMoney = Number(savedMoney);
+      if (Number.isFinite(parsedMoney) && parsedMoney >= 0) {
+        money = parsedMoney;
+      }
+    }
 
- // Hotel floor
- for(let y=0;y<ROWS;y++){
-  for(let x=0;x<COLS;x++){
-   diamond(x,y,(x+y)%2?"#bfc2b7":"#d0cec1");
+    if (savedTiles) {
+      const parsed = JSON.parse(savedTiles);
+
+      if (parsed && typeof parsed === "object" &&
+          !Array.isArray(parsed)) {
+        tiles = parsed;
+      }
+    }
+  } catch (error) {
+    console.error("Save loading failed:", error);
   }
- }
-
- // Constructed rooms
- for(const key in tiles){
-  const [x,y]=key.split(",").map(Number);
-  diamond(x,y,"#c58d55");
-  const p=point(x,y);
-
-  ctx.fillStyle="#f1d8a8";
-  ctx.fillRect(p.x-7,p.y+7,14,5);
-
-  ctx.fillStyle="#65432d";
-  ctx.fillRect(p.x-5,p.y-5,10,11);
- }
-
- // Back wall decoration
- const a=point(0,0);
- const b=point(COLS-1,0);
- const c=point(0,ROWS-1);
-
- ctx.strokeStyle="#eee1d0";
- ctx.lineWidth=7;
- ctx.beginPath();
- ctx.moveTo(a.x-TW/2,a.y+TH/2);
- ctx.lineTo(b.x,b.y+TH/2);
- ctx.stroke();
-
- ctx.beginPath();
- ctx.moveTo(a.x,a.y);
- ctx.lineTo(c.x-TW/2,c.y+TH/2);
- ctx.stroke();
-
- // Reception desk
- const rp=point(5,3);
- ctx.fillStyle="#70452c";
- ctx.fillRect(rp.x-22,rp.y+5,44,14);
- ctx.fillStyle="#d5a16a";
- ctx.fillRect(rp.x-22,rp.y+3,44,5);
-
- ctx.fillStyle="#fff";
- ctx.font="bold 12px Arial";
- ctx.textAlign="center";
- ctx.fillText("RECEPTION",rp.x,rp.y-8);
-
- // Guest
- const gp=point(4,6);
- ctx.fillStyle="#efbb83";
- ctx.beginPath();
- ctx.arc(gp.x,gp.y-7,5,0,Math.PI*2);
- ctx.fill();
- ctx.fillStyle="#c34c3e";
- ctx.fillRect(gp.x-5,gp.y-2,10,13);
- ctx.fillStyle="#303b55";
- ctx.fillRect(gp.x-4,gp.y+11,3,7);
- ctx.fillRect(gp.x+2,gp.y+11,3,7);
-
- // Title
- ctx.fillStyle="#fff";
- ctx.font="bold 15px Arial";
- ctx.fillText("YOUR FIRST HOTEL",w/2,30);
-
- ctx.font="11px Arial";
- ctx.fillStyle="#d9e2d8";
- ctx.fillText("Tap Build Room, then select a floor tile",w/2,48);
-
- document.getElementById("money").textContent=
-  "💰 $"+money.toLocaleString("en-IN");
 }
 
-function save(){
- localStorage.setItem("hotelTiles",JSON.stringify(tiles));
- localStorage.setItem("hotelMoney",String(money));
+function saveGame() {
+  try {
+    localStorage.setItem(STORAGE_MONEY, String(money));
+    localStorage.setItem(STORAGE_TILES, JSON.stringify(tiles));
+  } catch (error) {
+    showMessage("Unable to save game!");
+    console.error(error);
+  }
 }
 
-canvas.addEventListener("pointerdown",e=>{
- if(!buildMode)return;
+// ===================================
+// SCREEN
+// ===================================
 
- const r=canvas.getBoundingClientRect();
- const mx=e.clientX-r.left;
- const my=e.clientY-r.top;
- const o=origin();
+function resizeCanvas() {
+  const rect = canvas.getBoundingClientRect();
+  const ratio = Math.min(window.devicePixelRatio || 1, 2);
 
- const dx=mx-o.x;
- const dy=my-o.y;
+  canvas.width = Math.round(rect.width * ratio);
+  canvas.height = Math.round(rect.height * ratio);
 
- const x=Math.round(dx/TW+dy/TH);
- const y=Math.round(dy/TH-dx/TW);
+  ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
 
- if(x<0||y<0||x>=COLS||y>=ROWS)return;
+  draw();
+}
 
- const key=x+","+y;
+window.addEventListener("resize", resizeCanvas);
 
- if(tiles[key]){
-  message("Room already constructed!");
-  return;
- }
+// ===================================
+// ISOMETRIC COORDINATES
+// ===================================
 
- if(money<1000){
-  message("Not enough money!");
-  return;
- }
+function getOrigin() {
+  return {
+    x: canvas.clientWidth / 2,
+    y: canvas.clientHeight * 0.20
+  };
+}
 
- tiles[key]=true;
- money-=1000;
- save();
- buildMode=false;
- document.getElementById("build").textContent="🏗️ Build Room";
- message("New floor tile constructed!");
- draw();
+function toScreen(x, y) {
+  const origin = getOrigin();
+
+  return {
+    x: origin.x + (x - y) * TILE_W / 2,
+    y: origin.y + (x + y) * TILE_H / 2
+  };
+}
+
+// ===================================
+// DRAW FLOOR TILE
+// ===================================
+
+function drawTile(x, y, color) {
+  const p = toScreen(x, y);
+
+  ctx.beginPath();
+
+  ctx.moveTo(p.x, p.y);
+  ctx.lineTo(p.x + TILE_W / 2, p.y + TILE_H / 2);
+  ctx.lineTo(p.x, p.y + TILE_H);
+  ctx.lineTo(p.x - TILE_W / 2, p.y + TILE_H / 2);
+
+  ctx.closePath();
+
+  ctx.fillStyle = color;
+  ctx.fill();
+
+  ctx.strokeStyle = "#929c91";
+  ctx.lineWidth = 0.8;
+  ctx.stroke();
+}
+
+// ===================================
+// DRAW HOTEL FLOOR
+// ===================================
+
+function drawFloor() {
+  for (let y = 0; y < ROWS; y++) {
+    for (let x = 0; x < COLS; x++) {
+      const color = (x + y) % 2 === 0
+        ? "#d0cec1"
+        : "#bfc2b7";
+
+      drawTile(x, y, color);
+    }
+  }
+}
+
+// ===================================
+// DRAW CONSTRUCTED ROOMS
+// ===================================
+
+function drawRooms() {
+  for (const key in tiles) {
+    const [x, y] = key.split(",").map(Number);
+
+    if (
+      !Number.isInteger(x) ||
+      !Number.isInteger(y) ||
+      x < 0 || y < 0 ||
+      x >= COLS || y >= ROWS
+    ) continue;
+
+    drawTile(x, y, "#c58d55");
+
+    const p = toScreen(x, y);
+
+    ctx.fillStyle = "#70452c";
+    ctx.fillRect(p.x - 7, p.y + 5, 14, 11);
+
+    ctx.fillStyle = "#f3d9a6";
+    ctx.fillRect(p.x - 7, p.y + 3, 14, 4);
+  }
+}
+
+// ===================================
+// HOTEL RECEPTION
+// ===================================
+
+function drawReception() {
+  const p = toScreen(5, 3);
+
+  ctx.fillStyle = "#65412c";
+  ctx.fillRect(p.x - 24, p.y + 5, 48, 15);
+
+  ctx.fillStyle = "#bd8250";
+  ctx.fillRect(p.x - 24, p.y + 2, 48, 5);
+
+  ctx.fillStyle = "#ffffff";
+  ctx.font = "bold 12px Arial";
+  ctx.textAlign = "center";
+
+  ctx.fillText("RECEPTION", p.x, p.y - 9);
+}
+
+// ===================================
+// GUEST CHARACTER
+// ===================================
+
+function drawGuest(x, y, shirtColor) {
+  const p = toScreen(x, y);
+
+  // Head
+  ctx.fillStyle = "#e8b48a";
+  ctx.beginPath();
+  ctx.arc(p.x, p.y - 8, 5, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Hair
+  ctx.fillStyle = "#473128";
+  ctx.fillRect(p.x - 5, p.y - 13, 10, 3);
+
+  // Body
+  ctx.fillStyle = shirtColor;
+  ctx.fillRect(p.x - 5, p.y - 3, 10, 13);
+
+  // Legs
+  ctx.fillStyle = "#303b55";
+  ctx.fillRect(p.x - 4, p.y + 10, 3, 7);
+  ctx.fillRect(p.x + 2, p.y + 10, 3, 7);
+}
+
+// ===================================
+// GAME RENDERING
+// ===================================
+
+function draw() {
+  const width = canvas.clientWidth;
+  const height = canvas.clientHeight;
+
+  ctx.clearRect(0, 0, width, height);
+
+  ctx.fillStyle = "#263c39";
+  ctx.fillRect(0, 0, width, height);
+
+  drawFloor();
+  drawRooms();
+  drawReception();
+
+  drawGuest(4, 6, "#c34c3e");
+
+  ctx.textAlign = "center";
+
+  ctx.fillStyle = "#ffffff";
+  ctx.font = "bold 15px Arial";
+  ctx.fillText("YOUR FIRST HOTEL", width / 2, 30);
+
+  ctx.fillStyle = "#d9e2d8";
+  ctx.font = "11px Arial";
+  ctx.fillText(
+    "Select BUILD ROOM to expand your hotel",
+    width / 2,
+    48
+  );
+
+  updateMoney();
+}
+
+// ===================================
+// MONEY DISPLAY
+// ===================================
+
+function updateMoney() {
+  document.getElementById("money").textContent =
+    "💰 $" + money.toLocaleString("en-IN");
+}
+
+// ===================================
+// MESSAGE
+// ===================================
+
+function showMessage(text) {
+  document.getElementById("message").textContent = text;
+}
+
+// ===================================
+// BUILDING SYSTEM
+// ===================================
+
+document.getElementById("build").addEventListener("click", () => {
+  buildMode = !buildMode;
+
+  const button = document.getElementById("build");
+
+  button.classList.toggle("active", buildMode);
+
+  button.textContent = buildMode
+    ? "❌ Cancel Build"
+    : "🏗️ Build Room";
+
+  showMessage(
+    buildMode
+      ? "Tap an empty floor tile to construct!"
+      : "Building cancelled."
+  );
 });
 
-function message(t){
- document.getElementById("message").textContent=t;
+// ===================================
+// TILE SELECTION
+// ===================================
+
+canvas.addEventListener("pointerdown", event => {
+  if (!buildMode) return;
+
+  const rect = canvas.getBoundingClientRect();
+
+  const mouseX = event.clientX - rect.left;
+  const mouseY = event.clientY - rect.top;
+
+  const origin = getOrigin();
+
+  const dx = mouseX - origin.x;
+  const dy = mouseY - origin.y;
+
+  const x = Math.round(
+    dx / TILE_W + dy / TILE_H
+  );
+
+  const y = Math.round(
+    dy / TILE_H - dx / TILE_W
+  );
+
+  if (
+    x < 0 || y < 0 ||
+    x >= COLS || y >= ROWS
+  ) {
+    showMessage("Select a floor tile!");
+    return;
+  }
+
+  const key = x + "," + y;
+
+  if (tiles[key]) {
+    showMessage("This tile is already constructed!");
+    return;
+  }
+
+  if (money < ROOM_COST) {
+    showMessage("Not enough money!");
+    return;
+  }
+
+  tiles[key] = true;
+  money -= ROOM_COST;
+
+  saveGame();
+
+  buildMode = false;
+
+  const button = document.getElementById("build");
+  button.classList.remove("active");
+  button.textContent = "🏗️ Build Room";
+
+  showMessage("New room foundation constructed!");
+
+  updateMoney();
+  draw();
+});
+
+// ===================================
+// UPGRADE BUTTON
+// ===================================
+
+document.getElementById("upgrade").addEventListener("click", () => {
+  showMessage("Hotel upgrades are coming soon!");
+});
+
+// ===================================
+// RESET GAME
+// ===================================
+
+document.getElementById("reset").addEventListener("click", () => {
+  const confirmReset = confirm(
+    "Are you sure you want to start a new hotel?"
+  );
+
+  if (!confirmReset) return;
+
+  money = 10000;
+  tiles = {};
+  buildMode = false;
+
+  saveGame();
+
+  document.getElementById("build").textContent = "🏗️ Build Room";
+  document.getElementById("build").classList.remove("active");
+
+  showMessage("Your new hotel adventure begins!");
+
+  updateMoney();
+  draw();
+});
+
+// ===================================
+// SERVICE WORKER REGISTRATION
+// ===================================
+
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("./sw.js")
+      .then(() => {
+        console.log("Hotel Tycoon offline support enabled.");
+      })
+      .catch(error => {
+        console.error("Service worker registration failed:", error);
+      });
+  });
 }
 
-document.getElementById("build").onclick=()=>{
- buildMode=!buildMode;
- document.getElementById("build").textContent=
-  buildMode?"Select a Tile":"🏗️ Build Room";
- message(buildMode?"Choose a floor tile to build!":"Build mode disabled");
-};
+// ===================================
+// START GAME
+// ===================================
 
-document.getElementById("upgrade").onclick=()=>{
- message("Hotel upgrades coming soon!");
-};
+loadGame();
+resizeCanvas();
+updateMoney();
 
-document.getElementById("reset").onclick=()=>{
- if(!confirm("Start a new hotel?"))return;
- money=10000;
- tiles={};
- save();
- draw();
- message("New hotel started!");
-};
-
-resize();
-draw();
 </script>
+
 </body>
 </html>
