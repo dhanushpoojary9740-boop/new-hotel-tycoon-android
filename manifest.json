@@ -1,0 +1,12 @@
+{
+  "name": "New Hotel Tycoon",
+  "short_name": "Hotel Tycoon",
+  "description": "Build and manage your own isometric hotel empire.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "landscape",
+  "background_color": "#142323",
+  "theme_color": "#203b36",
+  "icons": []
+}
